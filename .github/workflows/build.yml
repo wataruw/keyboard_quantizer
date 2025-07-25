@@ -1,35 +1,59 @@
-# Keyboard Quantizer Mini用ファームウェアビルドワークフロー
+# Keyboard Quantizer firmware build workflow with product and keymap selection
 name: Build Firmware
 
-# ワークフローのトリガー設定
-on:
-  # mainまたはmasterブランチへのプッシュ時に実行
+# Workflow trigger settings
+"on":
+  # Execute on push to main, master, or naginata branches
   push:
-    branches: [ main, master, naginata ]
-  # mainまたはmasterブランチへのプルリクエスト時に実行
+    branches: [main, master, naginata]
+  # Execute on pull requests to main, master, or naginata branches
   pull_request:
-    branches: [ main, master, naginata ]
-  # 手動実行用トリガー
+    branches: [main, master, naginata]
+  # Manual execution trigger with parameters
   workflow_dispatch:
+    inputs:
+      product:
+        description: 'Select product'
+        required: true
+        default: 'mini'
+        type: choice
+        options:
+          - 'kqb'
+          - 'mini'
+      keymap:
+        description: 'Select keymap type'
+        required: true
+        default: 'default'
+        type: choice
+        options:
+          - 'default'
+          - 'naginata'
+          - 'naginata_v16'
+          - 'no_msc'
+          - 'vial'
 
 jobs:
   build:
-    # Ubuntu最新版でビルドを実行
+    # Run on Ubuntu latest
     runs-on: ubuntu-latest
+    env:
+      # Default values for push/PR triggers
+      PRODUCT: ${{ github.event.inputs.product || 'mini' }}
+      KEYMAP: ${{ github.event.inputs.keymap || 'naginata_v16' }}
     steps:
-      # リポジトリのチェックアウト（サブモジュールも含む）
+      # Checkout repository with submodules
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # ビルドに必要な依存関係のインストール
+      # Install build dependencies
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y git python3-pip gcc-arm-none-eabi binutils-avr avr-libc
           python3 -m pip install qmk
 
-      # Vial-QMKのクローンとセットアップ
+      # Clone and setup Vial-QMK
       - name: Clone Vial QMK
         run: |
           git clone --recursive --depth 1 -b bmp-vial-1.0.6 https://github.com/sekigon-gonnoc/vial-qmk.git
@@ -37,31 +61,62 @@ jobs:
           pip3 install -r requirements.txt
           qmk setup -H $PWD -y
 
-      # キーマップファイルの準備
-      # - vialキーマップをベースにnaginata_v16キーマップを作成
-      # - カスタムキーマップファイルを配置
-      # - 必要なソースファイルをコピー
+      # Prepare keymap files based on selected product and keymap
       - name: Prepare keymap files
         run: |
           cd vial-qmk
-          mkdir -p keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16
-          cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
-          cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
-          cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
-          cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
 
-      # ファームウェアのビルド
+          echo "Building for product: ${{ env.PRODUCT }}, keymap: ${{ env.KEYMAP }}"
+
+          # Create keymap directory
+          mkdir -p keyboards/sekigon/keyboard_quantizer/${{ env.PRODUCT }}/keymaps/${{ env.KEYMAP }}
+
+          # Product-specific processing
+          if [ "${{ env.PRODUCT }}" = "mini" ]; then
+            # For mini product
+            if [ "${{ env.KEYMAP }}" = "naginata_v16" ]; then
+              # Special case for naginata_v16: create based on vial
+              cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+              cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+              cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
+            else
+              # For other keymaps
+              if [ -d "$GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}" ]; then
+                cp -r $GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/${{ env.KEYMAP }}/
+              else
+                echo "Warning: Keymap ${{ env.KEYMAP }} not found for mini, using existing keymap"
+              fi
+            fi
+            # Copy mini common files
+            cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
+          elif [ "${{ env.PRODUCT }}" = "kqb" ]; then
+            # For kqb product
+            if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
+              cp -r $GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
+            else
+              echo "Warning: Keymap ${{ env.KEYMAP }} not found for kqb, using existing keymap"
+            fi
+          fi
+
+          # Validate product/keymap combination
+          if [ ! -f "keyboards/sekigon/keyboard_quantizer/${{ env.PRODUCT }}/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
+            echo "Error: Invalid product/keymap combination: ${{ env.PRODUCT }}/${{ env.KEYMAP }}"
+            exit 1
+          fi
+
+      # Build firmware
       - name: Build firmware
         working-directory: vial-qmk
         run: |
-          make sekigon/keyboard_quantizer/mini:naginata_v16:uf2
-          ls -la .build/  # ビルドされたファイルを確認
+          # Build based on product and keymap selection
+          make sekigon/keyboard_quantizer/${{ env.PRODUCT }}:${{ env.KEYMAP }}:uf2
+          ls -la .build/  # Show built files
 
-      # ビルドしたファームウェアをアーティファクトとして保存
+      # Archive built firmware as artifact
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          name: keyboard-firmware
-          path: vial-qmk/.build/sekigon_keyboard_quantizer_mini_naginata_v16.uf2
-          if-no-files-found: error  # ファイルが見つからない場合はエラーとする
+          name: keyboard-firmware-${{ env.PRODUCT }}-${{ env.KEYMAP }}
+          path: vial-qmk/.build/sekigon_keyboard_quantizer_${{ env.PRODUCT }}_${{ env.KEYMAP }}.uf2
+          if-no-files-found: error  # Error if files not found
           retention-days: 7
