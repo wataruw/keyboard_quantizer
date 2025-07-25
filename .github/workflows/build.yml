@@ -1,4 +1,4 @@
-# Keyboard Quantizer Mini用ファームウェアビルドワークフロー
+# Keyboard Quantizer ファームウェアビルドワークフロー（製品・キーマップ選択対応）
 name: Build Firmware
 
 # ワークフローのトリガー設定
@@ -9,13 +9,37 @@ on:
   # mainまたはmasterブランチへのプルリクエスト時に実行
   pull_request:
     branches: [ main, master, naginata ]
-  # 手動実行用トリガー
+  # 手動実行用トリガー（パラメータ付き）
   workflow_dispatch:
+    inputs:
+      product:
+        description: '製品を選択してください'
+        required: true
+        default: 'mini'
+        type: choice
+        options:
+          - 'kqb'
+          - 'mini'
+      keymap:
+        description: 'キーマップタイプを選択してください'
+        required: true
+        default: 'default'
+        type: choice
+        options:
+          - 'default'
+          - 'naginata'
+          - 'naginata_v16'
+          - 'no_msc'
+          - 'vial'
 
 jobs:
   build:
     # Ubuntu最新版でビルドを実行
     runs-on: ubuntu-latest
+    env:
+      # デフォルト値の設定（プッシュ・PRトリガー時用）
+      PRODUCT: ${{ github.event.inputs.product || 'mini' }}
+      KEYMAP: ${{ github.event.inputs.keymap || 'naginata_v16' }}
     steps:
       # リポジトリのチェックアウト（サブモジュールも含む）
       - uses: actions/checkout@v4
@@ -38,30 +62,62 @@ jobs:
           qmk setup -H $PWD -y
 
       # キーマップファイルの準備
-      # - vialキーマップをベースにnaginata_v16キーマップを作成
-      # - カスタムキーマップファイルを配置
-      # - 必要なソースファイルをコピー
+      # - 選択された製品とキーマップに基づいて動的にファイルを配置
       - name: Prepare keymap files
         run: |
           cd vial-qmk
-          mkdir -p keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16
-          cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
-          cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
-          cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
-          cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
+          
+          echo "Building for product: ${{ env.PRODUCT }}, keymap: ${{ env.KEYMAP }}"
+          
+          # キーマップディレクトリの作成
+          mkdir -p keyboards/sekigon/keyboard_quantizer/${{ env.PRODUCT }}/keymaps/${{ env.KEYMAP }}
+          
+          # 製品固有の処理
+          if [ "${{ env.PRODUCT }}" = "mini" ]; then
+            # miniの場合
+            if [ "${{ env.KEYMAP }}" = "naginata_v16" ]; then
+              # naginata_v16の場合：vialをベースにnaginata_v16を作成
+              cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+              cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+              cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
+            else
+              # その他のキーマップの場合
+              if [ -d "$GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}" ]; then
+                cp -r $GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/${{ env.KEYMAP }}/
+              else
+                echo "Warning: Keymap ${{ env.KEYMAP }} not found for mini, using existing keymap"
+              fi
+            fi
+            # miniの共通ファイル
+            cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
+          elif [ "${{ env.PRODUCT }}" = "kqb" ]; then
+            # kqbの場合
+            if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
+              cp -r $GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
+            else
+              echo "Warning: Keymap ${{ env.KEYMAP }} not found for kqb, using existing keymap"
+            fi
+          fi
+          
+          # 製品・キーマップの組み合わせが有効かチェック
+          if [ ! -f "keyboards/sekigon/keyboard_quantizer/${{ env.PRODUCT }}/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
+            echo "Error: Invalid product/keymap combination: ${{ env.PRODUCT }}/${{ env.KEYMAP }}"
+            exit 1
+          fi
 
       # ファームウェアのビルド
       - name: Build firmware
         working-directory: vial-qmk
         run: |
-          make sekigon/keyboard_quantizer/mini:naginata_v16:uf2
+          # 製品とキーマップに基づいて動的にビルド
+          make sekigon/keyboard_quantizer/${{ env.PRODUCT }}:${{ env.KEYMAP }}:uf2
           ls -la .build/  # ビルドされたファイルを確認
 
       # ビルドしたファームウェアをアーティファクトとして保存
       - name: Archive firmware
         uses: actions/upload-artifact@v4
         with:
-          name: keyboard-firmware
-          path: vial-qmk/.build/sekigon_keyboard_quantizer_mini_naginata_v16.uf2
+          name: keyboard-firmware-${{ env.PRODUCT }}-${{ env.KEYMAP }}
+          path: vial-qmk/.build/sekigon_keyboard_quantizer_${{ env.PRODUCT }}_${{ env.KEYMAP }}.uf2
           if-no-files-found: error  # ファイルが見つからない場合はエラーとする
           retention-days: 7
