@@ -1,0 +1,67 @@
+# Keyboard Quantizer Mini用ファームウェアビルドワークフロー
+name: Build Firmware
+
+# ワークフローのトリガー設定
+on:
+  # mainまたはmasterブランチへのプッシュ時に実行
+  push:
+    branches: [ main, master ]
+  # mainまたはmasterブランチへのプルリクエスト時に実行
+  pull_request:
+    branches: [ main, master ]
+  # 手動実行用トリガー
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Ubuntu最新版でビルドを実行
+    runs-on: ubuntu-latest
+    steps:
+      # リポジトリのチェックアウト（サブモジュールも含む）
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ビルドに必要な依存関係のインストール
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3-pip gcc-arm-none-eabi binutils-avr avr-libc
+          python3 -m pip install qmk
+
+      # Vial-QMKのクローンとセットアップ
+      - name: Clone Vial QMK
+        run: |
+          git clone --recursive --depth 1 -b bmp-vial-1.0.6 https://github.com/sekigon-gonnoc/vial-qmk.git
+          cd vial-qmk
+          pip3 install -r requirements.txt
+          qmk setup -H $PWD -y
+
+      # キーマップファイルの準備
+      # - vialキーマップをベースにnaginata_v16キーマップを作成
+      # - カスタムキーマップファイルを配置
+      # - 必要なソースファイルをコピー
+      - name: Prepare keymap files
+        run: |
+          cd vial-qmk
+          mkdir -p keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16
+          cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+          cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+          cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
+          cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
+
+      # ファームウェアのビルド
+      # naginata_v16キーマップでuf2ファイルを生成
+      - name: Build firmware
+        run: |
+          cd vial-qmk
+          make sekigon/keyboard_quantizer/mini:naginata_v16:uf2
+
+      # ビルドしたファームウェアをアーティファクトとして保存
+      # 7日間保持される
+      - name: Archive firmware
+        uses: actions/upload-artifact@v3
+        with:
+          name: keyboard-firmware
+          path: vial-qmk/.build/*.uf2
+          retention-days: 7
