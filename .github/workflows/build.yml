@@ -5,10 +5,10 @@ name: Build Firmware
 on:
   # mainまたはmasterブランチへのプッシュ時に実行
   push:
-    branches: [ main, master ]
+    branches: [ main, master, naginata ]
   # mainまたはmasterブランチへのプルリクエスト時に実行
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, naginata ]
   # 手動実行用トリガー
   workflow_dispatch:
 
