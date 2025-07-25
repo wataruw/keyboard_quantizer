@@ -5,10 +5,10 @@ name: Build Firmware
 on:
   # mainまたはmasterブランチへのプッシュ時に実行
   push:
-    branches: [ main, master ]
+    branches: [ main, master, naginata ]
   # mainまたはmasterブランチへのプルリクエスト時に実行
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, naginata ]
   # 手動実行用トリガー
   workflow_dispatch:
 
@@ -51,17 +51,17 @@ jobs:
           cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
 
       # ファームウェアのビルド
-      # naginata_v16キーマップでuf2ファイルを生成
       - name: Build firmware
+        working-directory: vial-qmk
         run: |
-          cd vial-qmk
           make sekigon/keyboard_quantizer/mini:naginata_v16:uf2
+          ls -la .build/  # ビルドされたファイルを確認
 
       # ビルドしたファームウェアをアーティファクトとして保存
-      # 7日間保持される
       - name: Archive firmware
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: keyboard-firmware
-          path: vial-qmk/.build/*.uf2
+          path: vial-qmk/.build/sekigon_keyboard_quantizer_mini_naginata_v16.uf2
+          if-no-files-found: error  # ファイルが見つからない場合はエラーとする
           retention-days: 7

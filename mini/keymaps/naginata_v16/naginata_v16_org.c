@@ -15,8 +15,6 @@
  */
 
 #include QMK_KEYBOARD_H
-#include "keymap_japanese.h"
-
 #include "nglist.h"
 #include "nglistarray.h"
 #include "naginata.h"
@@ -528,7 +526,7 @@ void ng_send_unicode_string_P(const char *pstr) {
 static int n_modifier = 0;
 
 bool process_modifier(uint16_t keycode, keyrecord_t *record) {
-  if (IS_MODIFIER_KEYCODE(keycode) || IS_QK_MOD_TAP(keycode) || keycode == TO(1) || keycode == TO(2) || keycode == MO(1) || keycode == MO(2)) {
+  if (IS_MODIFIER_KEYCODE(keycode) || IS_QK_MOD_TAP(keycode)) {
     if (record->event.pressed) {
       n_modifier++;
       layer_off(naginata_layer);
@@ -999,156 +997,135 @@ void ng_SY() {
   unregister_code(KC_LSFT);
 }
 
-void ngh_JKQ() { // ぬ3 【】を「ぬ3」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_3);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKQ() { // ^{End}
+  ng_eof();
 }
 
-void ngh_JKW() { // ぬ5 ……を「ぬ5」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_5);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKW() { // ／{改行}
+  ng_send_unicode_string_P(PSTR("／"));
 }
 
 // void ngh_JKE() { // /*ディ*/
   
 // }
 
-void ngh_JKR() { // ぬ6 ――を「ぬ6」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_6);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKR() { // ^s
+  ng_save();
 }
 
 void ngh_JKT() { // ・
   tap_code(KC_SLSH);
 }
 
-void ngh_JKA() { // ぬ2 『』を「ぬ2」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_2);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKA() { // ……{改行}
+  ng_send_unicode_string_P(PSTR("……"));
 }
 
-void ngh_JKS() { // ぬ1 ⇒を「ぬ1」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_1);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKS() { // 『{改行}
+  ng_send_unicode_string_P(PSTR("『"));
 }
 
-void ngh_JKD() { // ？
-  tap_code16(S(KC_SLSH));
+void ngh_JKD() { // ？{改行}
+  ng_send_unicode_string_P(PSTR("？"));
 }
 
-void ngh_JKF() { // 「
-  tap_code(JP_LBRC);
+void ngh_JKF() { // 「{改行}
+  ng_send_unicode_string_P(PSTR("「"));
 }
 
-void ngh_JKG() { // (
-  tap_code16(S(JP_8));
+void ngh_JKG() { // ({改行}
+  ng_send_unicode_string_P(PSTR("（"));
 }
 
-void ngh_JKZ() { //  ぬ4 《》を「ぬ4」に登録
-  tap_code(KC_N);
-  tap_code(KC_U);
-  tap_code(KC_4);
-  wait_ms(300);
-  ng_left(1);
-  wait_ms(300);
-  tap_code(KC_ENT);
+void ngh_JKZ() { // ――{改行}
+  ng_send_unicode_string_P(PSTR("――"));
 }
 
-void ngh_JKX() { // F2
-  tap_code(KC_F2);
+void ngh_JKX() { // 』{改行}
+  ng_send_unicode_string_P(PSTR("』"));
 }
 
-void ngh_JKC() { // ！
-  tap_code16(S(JP_1));
+void ngh_JKC() { // ！{改行}
+  ng_send_unicode_string_P(PSTR("！"));
 }
 
-void ngh_JKV() { // 」
-  tap_code(JP_RBRC);
+void ngh_JKV() { // 」{改行}
+  ng_send_unicode_string_P(PSTR("」"));
 }
 
-void ngh_JKB() { // )
-  tap_code16(S(JP_9));
+void ngh_JKB() { // ){改行}
+  ng_send_unicode_string_P(PSTR("）"));
 }
 
-void ngh_DFY() { // ^c
-  ng_copy();
+void ngh_DFY() { // {Home}
+  ng_home();
 }
 
-void ngh_DFU() { // ^x
-  ng_cut();
+void ngh_DFU() { // +{End}{BS}
+  register_code(KC_LSFT);
+  ng_end();
+  unregister_code(KC_LSFT);
+  tap_code(KC_BSPC);
 }
 
 void ngh_DFI() { // {vk1Csc079}
   ng_saihenkan();
 }
 
-void ngh_DFO() { // ^v
-  ng_paste();
+void ngh_DFO() { // {Del}
+  tap_code(KC_DEL);
 }
 
-void ngh_DFP() { // ^z
-  ng_undo();
+void ngh_DFP() { // +{Esc 2}
+  register_code(KC_LSFT);
+  tap_code(KC_ESC);
+  tap_code(KC_ESC);
+  unregister_code(KC_LSFT);
 }
 
-void ngh_DFH() { // {←}
-  tap_code(KC_LEFT);
+void ngh_DFH() { // {Enter}{End}
+  tap_code(KC_ENT);
+  ng_end();
 }
 
-void ngh_DFJ() { // {↓}
-  tap_code(KC_DOWN);
+void ngh_DFJ() { // {↑}
+  ng_up(1);
 }
 
-void ngh_DFK() { // {↑}
-  tap_code(KC_UP);
+void ngh_DFK() { // +{↑}
+  register_code(KC_LSFT);
+  ng_up(1);
+  unregister_code(KC_LSFT);
 }
 
-void ngh_DFL() { // {→}
-  tap_code(KC_RGHT);
+void ngh_DFL() { // +{↑ 7}
+  register_code(KC_LSFT);
+  ng_up(7);
+  unregister_code(KC_LSFT);
 }
 
 void ngh_DFSCLN() { // ^i
   ng_katakana();
 }
 
-void ngh_DFN() { // +{←}
-  tap_code16(S(KC_LEFT));
+void ngh_DFN() { // {End}
+  ng_end();
 }
 
-void ngh_DFM() { // +{↓}
-  tap_code16(S(KC_DOWN));
+void ngh_DFM() { // {↓}
+  ng_down(1);
 }
 
-void ngh_DFCOMM() { // +{↑}
-  tap_code16(S(KC_UP));
+void ngh_DFCOMM() { // +{↓}
+  register_code(KC_LSFT);
+  ng_down(1);
+  unregister_code(KC_LSFT);
 }
 
-void ngh_DFDOT() { // +{→}
-  tap_code16(S(KC_RGHT));
+void ngh_DFDOT() { // +{↓ 7}
+  register_code(KC_LSFT);
+  ng_down(7);
+  unregister_code(KC_LSFT);
 }
 
 void ngh_DFSLSH() { // ^u
@@ -1326,8 +1303,10 @@ void ng_cut() {
   switch (naginata_config.os) {
     case NG_WIN:
     case NG_LINUX:
-    case NG_MAC:
       tap_code16(LCTL(KC_X));
+      break;
+    case NG_MAC:
+      tap_code16(LCMD(KC_X));
       break;
   }
 }
@@ -1336,8 +1315,10 @@ void ng_copy() {
   switch (naginata_config.os) {
     case NG_WIN:
     case NG_LINUX:
-    case NG_MAC:
       tap_code16(LCTL(KC_C));
+      break;
+    case NG_MAC:
+      tap_code16(LCMD(KC_C));
       break;
   }
 }
@@ -1349,11 +1330,11 @@ void ng_paste() {
       tap_code16(LCTL(KC_V));
       break;
     case NG_MAC:
-      register_code(KC_LCTL);
+      register_code(KC_LCMD);
       wait_ms(100);
       tap_code(KC_V);
       wait_ms(100);
-      unregister_code(KC_LCTL);
+      unregister_code(KC_LCMD);
       wait_ms(100);
       break;
   }
@@ -1406,7 +1387,7 @@ void ng_home() {
       tap_code(KC_HOME);
       break;
     case NG_MAC:
-      tap_code16(LCTL(KC_LEFT));
+      tap_code16(LCTL(KC_A));
       break;
   }
 }
@@ -1418,7 +1399,7 @@ void ng_end() {
       tap_code(KC_END);
       break;
     case NG_MAC:
-      tap_code16(LCTL(KC_RGHT));
+      tap_code16(LCTL(KC_E));
       break;
   }
 }
@@ -1430,7 +1411,7 @@ void ng_katakana() {
       tap_code16(LCTL(KC_I));
       break;
     case NG_MAC:
-      tap_code16(LCMD(KC_K));
+      tap_code16(LCTL(KC_K));
       break;
   }
 }
@@ -1454,7 +1435,7 @@ void ng_hiragana() {
       tap_code16(LCTL(KC_U));
       break;
     case NG_MAC:
-      tap_code16(LCMD(KC_J));
+      tap_code16(LCTL(KC_J));
       break;
   }
 }
@@ -1466,7 +1447,7 @@ void ng_redo() {
       tap_code16(LCTL(KC_Y));
       break;
     case NG_MAC:
-      tap_code16(LSFT(LCTL(KC_Z)));
+      tap_code16(LSFT(LCMD(KC_Z)));
       break;
   }
 }
@@ -1475,8 +1456,10 @@ void ng_undo() {
   switch (naginata_config.os) {
     case NG_WIN:
     case NG_LINUX:
-    case NG_MAC:
       tap_code16(LCTL(KC_Z));
+      break;
+    case NG_MAC:
+      tap_code16(LCMD(KC_Z));
       break;
   }
 }
@@ -1484,8 +1467,6 @@ void ng_undo() {
 void ng_saihenkan() {
   switch (naginata_config.os) {
     case NG_WIN:
-      tap_code16(LGUI(KC_SLSH));
-      break;
     case NG_LINUX:
       tap_code(KC_INT4);
       break;
@@ -1503,7 +1484,7 @@ void ng_eof() {
       tap_code16(LCTL(KC_END));
       break;
     case NG_MAC:
-      tap_code16(LCTL(KC_DOWN));
+      tap_code16(LCMD(KC_DOWN));
       break;
   }
 }
