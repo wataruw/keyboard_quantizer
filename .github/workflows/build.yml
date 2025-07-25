@@ -63,5 +63,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: keyboard-firmware
-          path: vial-qmk/.build/*.uf2
+          path: .build/*.uf2
           retention-days: 7
