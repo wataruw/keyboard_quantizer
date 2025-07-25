@@ -60,7 +60,7 @@ jobs:
       # ビルドしたファームウェアをアーティファクトとして保存
       # 7日間保持される
       - name: Archive firmware
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: keyboard-firmware
           path: vial-qmk/.build/*.uf2
