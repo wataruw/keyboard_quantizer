@@ -62,6 +62,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: keyboard-firmware
-          path: vial-qmk/.build/*.uf2
+          path: vial-qmk/.build/sekigon_keyboard_quantizer_mini_naginata_v16.uf2
           if-no-files-found: error  # ファイルが見つからない場合はエラーとする
           retention-days: 7
