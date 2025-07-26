@@ -28,6 +28,7 @@ name: Build Firmware
         options:
           - 'default'
           - 'naginata_v16'
+          - 'no_msc'
 
 jobs:
   build:
