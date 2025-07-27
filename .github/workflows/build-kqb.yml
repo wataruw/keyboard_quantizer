@@ -28,7 +28,7 @@ jobs:
         with:
           submodules: recursive
 
-      # Install QMK build dependencies including arm-none-eabi-gcc
+      # Install QMK dependencies including arm-none-eabi-gcc
       - name: Install QMK dependencies
         run: |
           sudo apt update
@@ -55,124 +55,24 @@ jobs:
       - name: Install QMK build tools
         working-directory: qmk_firmware_bmp_vial
         run: |
-          # Install QMK build tools
           ./util/qmk_install.sh
-          # Install Python requirements if file exists
-          if [ -f "requirements.txt" ]; then
-            pip3 install -r requirements.txt
-          else
-            echo "requirements.txt not found, installing QMK directly"
-            pip3 install qmk
-          fi
-          # Check if this is a standard QMK or BMP-specific version
-          if [ -f "qmk" ]; then
-            echo "Found QMK CLI script, setting up QMK"
-            qmk setup -H $PWD -y
-          else
-            echo "Standard QMK CLI not found, this appears to be BMP-specific QMK"
-            # For BMP QMK, just ensure make is available
-            make --version
-          fi
-          # Verify BMP protocol files exist
-          echo "Checking for BMP protocol files..."
-          find . -name "bmp_settings.c" -type f || echo "bmp_settings.c not found"
-          find . -name "bmp_settings.h" -type f || echo "bmp_settings.h not found"
-          find . -name "*bmp*" -type f | head -10 || echo "No BMP files found"
-          ls -la tmk_core/protocol/ || echo "Protocol directory not found"
 
       # Prepare keymap files for kqb product
       - name: Prepare keymap files
         run: |
           cd qmk_firmware_bmp_vial
-
-          echo "Building for product: kqb, keymap: ${{ env.KEYMAP }}"
-
-          # Check if the keyboard_quantizer/kqb exists in the cloned repository
-          if [ ! -d "keyboards/sekigon/keyboard_quantizer/kqb" ]; then
-            echo "KQB keyboard not found in repository, creating from workspace..."
-            mkdir -p keyboards/sekigon/keyboard_quantizer/kqb
-            
-          # Copy all kqb files from workspace to ensure complete setup
-          echo "Copying kqb files from workspace..."
-          if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
-            cp -r "$GITHUB_WORKSPACE/kqb/"* keyboards/sekigon/keyboard_quantizer/kqb/
-            echo "Copied entire kqb directory from workspace"
-            
-            # Ensure BMP-specific settings in rules.mk
-            echo "Updating rules.mk for BMP compatibility..."
-            if [ -f "keyboards/sekigon/keyboard_quantizer/kqb/rules.mk" ]; then
-              # Add BMP-specific architecture settings if not present
-              if ! grep -q "ARCH.*ARM" keyboards/sekigon/keyboard_quantizer/kqb/rules.mk; then
-                echo "# BMP specific settings" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-                echo "ARCH = ARM" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-                echo "ARM_ATSAM = no" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-                echo "# Board specific settings" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-                echo "F_CPU = 64000000" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-                echo "F_USB = 48000000" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
-              fi
-            fi
-          else
-            echo "Error: kqb directory not found in workspace"
-            exit 1
-          fi
-          else
-            echo "KQB keyboard found in repository, updating with workspace files..."
-            # Copy all kqb files from workspace to ensure complete setup
-            if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
-              # Copy all files except keymaps directory first
-              find "$GITHUB_WORKSPACE/kqb" -maxdepth 1 -type f -exec cp {} keyboards/sekigon/keyboard_quantizer/kqb/ \;
-              
-              # Copy ld directory if it exists
-              if [ -d "$GITHUB_WORKSPACE/kqb/ld" ]; then
-                cp -r "$GITHUB_WORKSPACE/kqb/ld" keyboards/sekigon/keyboard_quantizer/kqb/
-              fi
-            fi
-          fi
-
-          # Ensure keymap directory exists
-          mkdir -p keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}
-
-          # Copy keymap files from workspace if they exist
-          if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
-            cp -r "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/"* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
-            echo "Copied custom keymap files for ${{ env.KEYMAP }}"
-          else
-            echo "Warning: Keymap ${{ env.KEYMAP }} not found in workspace"
-          fi
-
-          # List the contents to verify
-          echo "Contents of keyboards/sekigon/keyboard_quantizer/kqb:"
-          ls -la keyboards/sekigon/keyboard_quantizer/kqb/ || echo "Directory not found"
-          echo "Contents of keymap directory:"
-          ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/ || echo "Keymap directory not found"
-
-          # Validate keymap exists
-          if [ ! -f "keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
-            echo "Error: Invalid keymap: kqb/${{ env.KEYMAP }}"
-            echo "Available keymaps:"
-            ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/ || echo "Keymaps directory not found"
-            exit 1
-          fi
+          
+          # Create kqb directory
+          mkdir -p keyboards/sekigon/keyboard_quantizer/kqb
+          
+          # Copy kqb files from workspace
+          cp -r $GITHUB_WORKSPACE/kqb/* keyboards/sekigon/keyboard_quantizer/kqb/
 
       # Build KQB firmware
       - name: Build KQB firmware
         working-directory: qmk_firmware_bmp_vial
         run: |
-          # Verify the setup before building
-          echo "Final verification before build..."
-          echo "Contents of kqb rules.mk:"
-          cat keyboards/sekigon/keyboard_quantizer/kqb/rules.mk || echo "rules.mk not found"
-          echo "Contents of kqb directory:"
-          ls -la keyboards/sekigon/keyboard_quantizer/kqb/
-          echo "Contents of keymap directory:"
-          ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
-          
-          # Ensure correct environment variables for BMP build
-          export QMK_HOME=$PWD
-          
-          # Build kqb firmware with specified keymap
           make sekigon/keyboard_quantizer/kqb:${{ env.KEYMAP }}:uf2
-          ls -la .build/  # Show built files
 
       # Archive built firmware as artifact
       - name: Archive firmware
@@ -180,5 +80,5 @@ jobs:
         with:
           name: keyboard-firmware-kqb-${{ env.KEYMAP }}
           path: qmk_firmware_bmp_vial/.build/sekigon_keyboard_quantizer_kqb_${{ env.KEYMAP }}.uf2
-          if-no-files-found: error  # Error if files not found
+          if-no-files-found: error
           retention-days: 7
