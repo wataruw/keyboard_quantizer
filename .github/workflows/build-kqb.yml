@@ -40,8 +40,8 @@ jobs:
       # Clone BLE Micro Pro QMK Firmware
       - name: Clone BLE Micro Pro QMK Firmware
         run: |
-          # Clone the main BMP QMK firmware repository directly to master branch
-          git clone --recursive -b master https://github.com/sekigon-gonnoc/qmk_firmware.git qmk_firmware_bmp_vial
+          # Use the same repository and branch as mini (which works)
+          git clone --recursive --depth 1 -b bmp-vial-1.3.5 https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
           cd qmk_firmware_bmp_vial
           # Ensure all submodules are updated
           git submodule update --init --recursive
@@ -56,6 +56,8 @@ jobs:
         working-directory: qmk_firmware_bmp_vial
         run: |
           ./util/qmk_install.sh
+          pip3 install -r requirements.txt
+          qmk setup -H $PWD -y
 
       # Prepare keymap files for kqb product
       - name: Prepare keymap files
