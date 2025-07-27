@@ -35,7 +35,6 @@ int includeList(NGList *list, uint16_t element) {
     for (int i = 0; i < list->size; i++) {
         if (list->elements[i] == element) {
             return i;
-            break;
         }
     }
 
