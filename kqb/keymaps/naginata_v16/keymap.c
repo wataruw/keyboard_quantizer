@@ -17,6 +17,8 @@
 
 #include "pointing_device.h"
 #include "report_parser.h"
+#include "eeconfig.h"
+#include "vial.h"
 
 #include "quantizer_mouse.h"
 
@@ -60,7 +62,24 @@ const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{
     {0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef},
 }};
 
+user_config_t user_config;
+
+#define DEFFERED_KEY_RECORD_LEN 6
+static keyrecord_t deferred_key_record[DEFFERED_KEY_RECORD_LEN];
+
+static void push_deferred_key_record(uint16_t keycode, keyevent_t *event) {
+    for (int i = 0; i < DEFFERED_KEY_RECORD_LEN; i++) {
+        if (deferred_key_record[i].keycode == KC_NO) {
+            keyrecord_t record     = {.event = *event, .keycode = keycode};
+            deferred_key_record[i] = record;
+            return;
+        }
+    }
+}
+
 void keyboard_post_init_user(void) {
+    user_config.raw = eeconfig_read_user();
+    
     // 薙刀式
     uint16_t ngonkeys[] = {KC_H, KC_J};
     uint16_t ngoffkeys[] = {KC_F, KC_G};
@@ -74,6 +93,22 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     bool cont = process_record_mouse(keycode, record);
+
+    // To apply key overrides to keycodes combined shift modifier, separate to two actions
+    if (keycode >= QK_MODS && keycode <= QK_MODS_MAX) {
+        if (record->event.pressed) {
+            register_mods(QK_MODS_GET_MODS(keycode));
+            uint16_t   deferred_keycode   = QK_MODS_GET_BASIC_KEYCODE(keycode);
+            keyevent_t deferred_key_event = (keyevent_t){.type = KEY_EVENT, .key = (keypos_t){.row = VIAL_MATRIX_MAGIC, .col = VIAL_MATRIX_MAGIC}, .pressed = 1, .time = (timer_read() | 1)};
+            push_deferred_key_record(deferred_keycode, &deferred_key_event);
+        } else {
+            uint16_t   deferred_keycode   = QK_MODS_GET_BASIC_KEYCODE(keycode);
+            keyevent_t deferred_key_event = ((keyevent_t){.type = KEY_EVENT, .key = (keypos_t){.row = VIAL_MATRIX_MAGIC, .col = VIAL_MATRIX_MAGIC}, .pressed = 0, .time = (timer_read() | 1)});
+            unregister_mods(QK_MODS_GET_MODS(keycode));
+            push_deferred_key_record(deferred_keycode, &deferred_key_event);
+        }
+        return false;
+    }
 
     if (record->event.pressed) {
         switch (keycode) {
@@ -90,4 +125,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 void post_process_record_user(uint16_t keycode, keyrecord_t* record) {
     post_process_record_mouse(keycode, record);
+}
+
+void housekeeping_task_user(void) {
+    for (int i = 0; i < DEFFERED_KEY_RECORD_LEN; i++) {
+        if (deferred_key_record[i].keycode != KC_NO) {
+            g_vial_magic_keycode_override = deferred_key_record[i].keycode;
+            action_exec(deferred_key_record[i].event);
+            deferred_key_record[i].keycode = KC_NO;
+        } else {
+            break;
+        }
+    }
 }
