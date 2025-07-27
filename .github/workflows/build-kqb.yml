@@ -40,7 +40,12 @@ jobs:
       # Clone BLE Micro Pro QMK Firmware
       - name: Clone BLE Micro Pro QMK Firmware
         run: |
-          git clone --depth 1 -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
+          git clone --recursive -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
+          cd qmk_firmware_bmp_vial
+          # Initialize and update all submodules
+          git submodule update --init --recursive
+          # Create a dummy tag to avoid git describe error
+          git tag -a v0.0.1 -m "dummy tag for build"
 
       # Install QMK build tools
       - name: Install QMK build tools
@@ -48,6 +53,8 @@ jobs:
         run: |
           ./util/qmk_install.sh
           pip3 install -r requirements.txt
+          # Setup QMK
+          qmk setup -H $PWD -y
 
       # Prepare keymap files for kqb product
       - name: Prepare keymap files
@@ -56,52 +63,45 @@ jobs:
 
           echo "Building for product: kqb, keymap: ${{ env.KEYMAP }}"
 
+          # Check if keyboard_quantizer directory exists, if not create the full structure
+          if [ ! -d "keyboards/sekigon/keyboard_quantizer/kqb" ]; then
+            echo "Creating keyboard_quantizer/kqb directory structure"
+            mkdir -p keyboards/sekigon/keyboard_quantizer/kqb
+          fi
+
           # Create keymap directory if it doesn't exist
           mkdir -p keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}
 
+          # Copy all kqb files from workspace to ensure complete setup
+          echo "Copying kqb files from workspace..."
+          if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
+            # Copy all files except keymaps directory first
+            find "$GITHUB_WORKSPACE/kqb" -maxdepth 1 -type f -exec cp {} keyboards/sekigon/keyboard_quantizer/kqb/ \;
+            
+            # Copy ld directory if it exists
+            if [ -d "$GITHUB_WORKSPACE/kqb/ld" ]; then
+              cp -r "$GITHUB_WORKSPACE/kqb/ld" keyboards/sekigon/keyboard_quantizer/kqb/
+            fi
+          fi
+
           # Copy keymap files from workspace if they exist
           if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
-            cp -r $GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
+            cp -r "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/"* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
             echo "Copied custom keymap files for ${{ env.KEYMAP }}"
           else
-            echo "Using default keymap files for ${{ env.KEYMAP }}"
+            echo "Warning: Keymap ${{ env.KEYMAP }} not found in workspace, using default from repository"
           fi
 
-          # Copy other kqb files from workspace
-          if [ -f "$GITHUB_WORKSPACE/kqb/config.h" ]; then
-            cp $GITHUB_WORKSPACE/kqb/config.h keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/info.json" ]; then
-            cp $GITHUB_WORKSPACE/kqb/info.json keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/kqb.c" ]; then
-            cp $GITHUB_WORKSPACE/kqb/kqb.c keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/kqb.h" ]; then
-            cp $GITHUB_WORKSPACE/kqb/kqb.h keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/matrix.c" ]; then
-            cp $GITHUB_WORKSPACE/kqb/matrix.c keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/rules.mk" ]; then
-            cp $GITHUB_WORKSPACE/kqb/rules.mk keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/post_rules.mk" ]; then
-            cp $GITHUB_WORKSPACE/kqb/post_rules.mk keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-
-          # Copy process_packet files if they exist
-          if [ -f "$GITHUB_WORKSPACE/kqb/process_packet.c" ]; then
-            cp $GITHUB_WORKSPACE/kqb/process_packet.c keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
-          if [ -f "$GITHUB_WORKSPACE/kqb/process_packet.h" ]; then
-            cp $GITHUB_WORKSPACE/kqb/process_packet.h keyboards/sekigon/keyboard_quantizer/kqb/
-          fi
+          # List the contents to verify
+          echo "Contents of keyboards/sekigon/keyboard_quantizer/kqb:"
+          ls -la keyboards/sekigon/keyboard_quantizer/kqb/ || echo "Directory not found"
+          echo "Contents of keymap directory:"
+          ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/ || echo "Keymap directory not found"
 
           # Validate keymap exists
           if [ ! -f "keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
             echo "Error: Invalid keymap: kqb/${{ env.KEYMAP }}"
-            echo "Available files:"
+            echo "Available keymaps:"
             ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/ || echo "Keymaps directory not found"
             exit 1
           fi
