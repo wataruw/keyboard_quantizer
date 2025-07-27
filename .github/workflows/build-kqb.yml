@@ -44,6 +44,9 @@ jobs:
           cd qmk_firmware_bmp_vial
           # Initialize and update all submodules
           git submodule update --init --recursive
+          # Configure git user for tag creation
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
           # Create a dummy tag to avoid git describe error
           git tag -a v0.0.1 -m "dummy tag for build"
 
