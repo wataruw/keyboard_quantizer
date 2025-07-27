@@ -41,16 +41,11 @@ jobs:
       # Clone BLE Micro Pro QMK Firmware
       - name: Clone BLE Micro Pro QMK Firmware
         run: |
-          # Use the same repository and branch as mini (which works)
+          # Clone BLE Micro Pro QMK Firmware
           git clone --recursive --depth 1 -b bmp-vial-1.3.5 https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
           cd qmk_firmware_bmp_vial
           # Ensure all submodules are updated
           git submodule update --init --recursive
-          # Configure git user for tag creation
-          git config user.email "github-actions@github.com"
-          git config user.name "GitHub Actions"
-          # Create a dummy tag to avoid git describe error
-          git tag -a v0.0.1 -m "dummy tag for build"
 
       # Install QMK build tools
       - name: Install QMK build tools
@@ -71,10 +66,6 @@ jobs:
           # Copy kqb files from workspace
           cp -r $GITHUB_WORKSPACE/kqb/* keyboards/sekigon/keyboard_quantizer/kqb/
           
-          # Copy parser files (needed for KQB functionality)
-          mkdir -p keyboards/sekigon/keyboard_quantizer/parser
-          cp -r $GITHUB_WORKSPACE/parser/* keyboards/sekigon/keyboard_quantizer/parser/
-
       # Fix BMP platform path issue
       - name: Fix BMP platform path issue
         working-directory: qmk_firmware_bmp_vial
