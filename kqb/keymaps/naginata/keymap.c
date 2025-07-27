@@ -94,8 +94,9 @@ void keyboard_post_init_user(void) {
     }
     
     // 薙刀式
-    uint16_t ngonkeys[] = {KC_H, KC_J};
-    uint16_t ngoffkeys[] = {KC_F, KC_G};
+    // Use USB HID scan codes instead of QMK keycodes
+    uint16_t ngonkeys[] = {0x0B, 0x0D};  // H=0x0B, J=0x0D in USB HID
+    uint16_t ngoffkeys[] = {0x09, 0x0A}; // F=0x09, G=0x0A in USB HID  
     set_naginata(1, ngonkeys, ngoffkeys);
     // 薙刀式
 }
