@@ -18,6 +18,7 @@
 #include "pointing_device.h"
 #include "report_parser.h"
 #include "eeconfig.h"
+#include "vial.h"
 
 #include "quantizer_mouse.h"
 
@@ -27,6 +28,7 @@
  NGKEYS naginata_keys;
 
 user_config_t user_config = {0};
+user_config_t naginata_config = {0};  // For naginata functions
 static bool config_initialized = false;
 
 
@@ -65,23 +67,23 @@ const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{
 }};
 
 void eeconfig_init_user(void) {
-    user_config.raw = 0;
-    user_config.key_os_override = 0;
-    user_config.os = NG_WIN;
-    user_config.tategaki = 1;
+    naginata_config.raw = 0;
+    naginata_config.key_os_override = 0;
+    naginata_config.os = NG_WIN;
+    naginata_config.tategaki = 1;
     config_initialized = true;
-    eeconfig_update_user(user_config.raw);
+    eeconfig_update_user(naginata_config.raw);
 }
 
 uint32_t eeconfig_read_user(void) {
     if (!config_initialized) {
         eeconfig_init_user();
     }
-    return user_config.raw;
+    return naginata_config.raw;
 }
 
 void eeconfig_update_user(uint32_t val) {
-    user_config.raw = val;
+    naginata_config.raw = val;
     config_initialized = true;
 }
 
