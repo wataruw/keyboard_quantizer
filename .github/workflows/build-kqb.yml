@@ -40,10 +40,14 @@ jobs:
       # Clone BLE Micro Pro QMK Firmware
       - name: Clone BLE Micro Pro QMK Firmware
         run: |
-          git clone --recursive -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
+          # Use the exact repository and branch as specified in requirements
+          git clone --depth 1 -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
           cd qmk_firmware_bmp_vial
-          # Initialize and update all submodules
-          git submodule update --init --recursive
+          # Try to get full history to ensure all files are available
+          git fetch --unshallow || echo "Already unshallow or fetch failed"
+          # Initialize and update all submodules with full depth
+          git submodule update --init --recursive --depth 1
+          git submodule foreach git fetch --unshallow || echo "Submodule unshallow failed"
           # Configure git user for tag creation
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
@@ -58,6 +62,11 @@ jobs:
           pip3 install -r requirements.txt
           # Setup QMK
           qmk setup -H $PWD -y
+          # Verify BMP protocol files exist
+          echo "Checking for BMP protocol files..."
+          find . -name "bmp_settings.c" -type f || echo "bmp_settings.c not found"
+          find . -name "bmp_settings.h" -type f || echo "bmp_settings.h not found"
+          ls -la tmk_core/protocol/bmp/ || echo "BMP protocol directory not found"
 
       # Prepare keymap files for kqb product
       - name: Prepare keymap files
