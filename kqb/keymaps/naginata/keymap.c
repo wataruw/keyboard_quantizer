@@ -17,6 +17,7 @@
 
 #include "pointing_device.h"
 #include "report_parser.h"
+#include "eeconfig.h"
 
 #include "quantizer_mouse.h"
 
@@ -24,6 +25,9 @@
  #include "keymap.h"
  #include "naginata.h"
  NGKEYS naginata_keys;
+
+user_config_t user_config = {0};
+static bool config_initialized = false;
 
 
 const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{
@@ -60,7 +64,33 @@ const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{
     {0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef},
 }};
 
+void eeconfig_init_user(void) {
+    user_config.raw = 0;
+    user_config.key_os_override = 0;
+    user_config.os = NG_WIN;
+    user_config.tategaki = 1;
+    config_initialized = true;
+    eeconfig_update_user(user_config.raw);
+}
+
+uint32_t eeconfig_read_user(void) {
+    if (!config_initialized) {
+        eeconfig_init_user();
+    }
+    return user_config.raw;
+}
+
+void eeconfig_update_user(uint32_t val) {
+    user_config.raw = val;
+    config_initialized = true;
+}
+
 void keyboard_post_init_user(void) {
+    // Initialize EEPROM config
+    if (!config_initialized) {
+        eeconfig_init_user();
+    }
+    
     // 薙刀式
     uint16_t ngonkeys[] = {KC_H, KC_J};
     uint16_t ngoffkeys[] = {KC_F, KC_G};
