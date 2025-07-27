@@ -55,15 +55,30 @@ jobs:
       - name: Install QMK build tools
         working-directory: qmk_firmware_bmp_vial
         run: |
+          # Install QMK build tools
           ./util/qmk_install.sh
-          pip3 install -r requirements.txt
-          # Setup QMK
-          qmk setup -H $PWD -y
+          # Install Python requirements if file exists
+          if [ -f "requirements.txt" ]; then
+            pip3 install -r requirements.txt
+          else
+            echo "requirements.txt not found, installing QMK directly"
+            pip3 install qmk
+          fi
+          # Check if this is a standard QMK or BMP-specific version
+          if [ -f "qmk" ]; then
+            echo "Found QMK CLI script, setting up QMK"
+            qmk setup -H $PWD -y
+          else
+            echo "Standard QMK CLI not found, this appears to be BMP-specific QMK"
+            # For BMP QMK, just ensure make is available
+            make --version
+          fi
           # Verify BMP protocol files exist
           echo "Checking for BMP protocol files..."
           find . -name "bmp_settings.c" -type f || echo "bmp_settings.c not found"
           find . -name "bmp_settings.h" -type f || echo "bmp_settings.h not found"
-          ls -la tmk_core/protocol/bmp/ || echo "BMP protocol directory not found"
+          find . -name "*bmp*" -type f | head -10 || echo "No BMP files found"
+          ls -la tmk_core/protocol/ || echo "Protocol directory not found"
 
       # Prepare keymap files for kqb product
       - name: Prepare keymap files
