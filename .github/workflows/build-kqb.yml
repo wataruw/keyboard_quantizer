@@ -69,6 +69,10 @@ jobs:
           
           # Copy kqb files from workspace
           cp -r $GITHUB_WORKSPACE/kqb/* keyboards/sekigon/keyboard_quantizer/kqb/
+          
+          # Copy parser files (needed for KQB functionality)
+          mkdir -p keyboards/sekigon/keyboard_quantizer/parser
+          cp -r $GITHUB_WORKSPACE/parser/* keyboards/sekigon/keyboard_quantizer/parser/
 
       # Build KQB firmware
       - name: Build KQB firmware
