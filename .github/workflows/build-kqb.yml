@@ -1,0 +1,124 @@
+# Keyboard Quantizer B(2) => KQB firmware build workflow for BLE Micro Pro
+name: Build KQB Firmware
+
+# Workflow trigger settings - manual execution only
+on:
+  # Manual execution trigger with parameters
+  workflow_dispatch:
+    inputs:
+      keymap:
+        description: 'Select keymap type'
+        required: true
+        default: 'default'
+        type: choice
+        options:
+          - 'default'
+          - 'naginata_v16'
+          - 'no_msc'
+
+jobs:
+  build:
+    # Run on Ubuntu latest
+    runs-on: ubuntu-latest
+    env:
+      KEYMAP: ${{ github.event.inputs.keymap }}
+    steps:
+      # Checkout repository with submodules
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Install QMK build dependencies including arm-none-eabi-gcc
+      - name: Install QMK dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3-pip gcc-arm-none-eabi binutils-avr avr-libc
+          sudo apt install -y build-essential gcc unzip wget zip gcc-avr binutils-avr avr-libc
+          sudo apt install -y dfu-programmer dfu-util gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+          python3 -m pip install qmk
+
+      # Clone BLE Micro Pro QMK Firmware
+      - name: Clone BLE Micro Pro QMK Firmware
+        run: |
+          git clone --depth 1 -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
+
+      # Install QMK build tools
+      - name: Install QMK build tools
+        working-directory: qmk_firmware_bmp_vial
+        run: |
+          ./util/qmk_install.sh
+          pip3 install -r requirements.txt
+
+      # Prepare keymap files for kqb product
+      - name: Prepare keymap files
+        run: |
+          cd qmk_firmware_bmp_vial
+
+          echo "Building for product: kqb, keymap: ${{ env.KEYMAP }}"
+
+          # Create keymap directory if it doesn't exist
+          mkdir -p keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}
+
+          # Copy keymap files from workspace if they exist
+          if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
+            cp -r $GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
+            echo "Copied custom keymap files for ${{ env.KEYMAP }}"
+          else
+            echo "Using default keymap files for ${{ env.KEYMAP }}"
+          fi
+
+          # Copy other kqb files from workspace
+          if [ -f "$GITHUB_WORKSPACE/kqb/config.h" ]; then
+            cp $GITHUB_WORKSPACE/kqb/config.h keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/info.json" ]; then
+            cp $GITHUB_WORKSPACE/kqb/info.json keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/kqb.c" ]; then
+            cp $GITHUB_WORKSPACE/kqb/kqb.c keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/kqb.h" ]; then
+            cp $GITHUB_WORKSPACE/kqb/kqb.h keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/matrix.c" ]; then
+            cp $GITHUB_WORKSPACE/kqb/matrix.c keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/rules.mk" ]; then
+            cp $GITHUB_WORKSPACE/kqb/rules.mk keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/post_rules.mk" ]; then
+            cp $GITHUB_WORKSPACE/kqb/post_rules.mk keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+
+          # Copy process_packet files if they exist
+          if [ -f "$GITHUB_WORKSPACE/kqb/process_packet.c" ]; then
+            cp $GITHUB_WORKSPACE/kqb/process_packet.c keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+          if [ -f "$GITHUB_WORKSPACE/kqb/process_packet.h" ]; then
+            cp $GITHUB_WORKSPACE/kqb/process_packet.h keyboards/sekigon/keyboard_quantizer/kqb/
+          fi
+
+          # Validate keymap exists
+          if [ ! -f "keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
+            echo "Error: Invalid keymap: kqb/${{ env.KEYMAP }}"
+            echo "Available files:"
+            ls -la keyboards/sekigon/keyboard_quantizer/kqb/keymaps/ || echo "Keymaps directory not found"
+            exit 1
+          fi
+
+      # Build KQB firmware
+      - name: Build KQB firmware
+        working-directory: qmk_firmware_bmp_vial
+        run: |
+          # Build kqb firmware with specified keymap
+          make sekigon/keyboard_quantizer/kqb:${{ env.KEYMAP }}:uf2
+          ls -la .build/  # Show built files
+
+      # Archive built firmware as artifact
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyboard-firmware-kqb-${{ env.KEYMAP }}
+          path: qmk_firmware_bmp_vial/.build/sekigon_keyboard_quantizer_kqb_${{ env.KEYMAP }}.uf2
+          if-no-files-found: error  # Error if files not found
+          retention-days: 7
