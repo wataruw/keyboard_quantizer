@@ -1,4 +1,5 @@
 # Keyboard Quantizer B(2) => KQB firmware build workflow for BLE Micro Pro
+# This workflow builds KQB firmware using the BMP (Bluetooth Micro Pro) platform
 name: Build KQB Firmware
 
 # Workflow trigger settings - manual execution only
@@ -73,6 +74,15 @@ jobs:
           # Copy parser files (needed for KQB functionality)
           mkdir -p keyboards/sekigon/keyboard_quantizer/parser
           cp -r $GITHUB_WORKSPACE/parser/* keyboards/sekigon/keyboard_quantizer/parser/
+
+      # Fix BMP platform path issue
+      - name: Fix BMP platform path issue
+        working-directory: qmk_firmware_bmp_vial
+        run: |
+          # Create symlink to fix path resolution issue for BMP platform
+          # The BMP build system looks for files in protocol/bmp/ but they're in tmk_core/protocol/bmp/
+          mkdir -p protocol
+          ln -s ../tmk_core/protocol/bmp protocol/bmp
 
       # Build KQB firmware
       - name: Build KQB firmware
