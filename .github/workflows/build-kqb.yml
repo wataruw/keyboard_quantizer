@@ -40,14 +40,13 @@ jobs:
       # Clone BLE Micro Pro QMK Firmware
       - name: Clone BLE Micro Pro QMK Firmware
         run: |
-          # Use the exact repository and branch as specified in requirements
-          git clone --depth 1 -b dev/ble-micro-pro https://github.com/sekigon-gonnoc/vial-qmk.git qmk_firmware_bmp_vial
+          # Clone the main BMP QMK firmware repository
+          git clone --recursive https://github.com/sekigon-gonnoc/qmk_firmware.git qmk_firmware_bmp_vial
           cd qmk_firmware_bmp_vial
-          # Try to get full history to ensure all files are available
-          git fetch --unshallow || echo "Already unshallow or fetch failed"
-          # Initialize and update all submodules with full depth
-          git submodule update --init --recursive --depth 1
-          git submodule foreach git fetch --unshallow || echo "Submodule unshallow failed"
+          # Switch to the master branch which contains BMP support
+          git checkout master
+          # Ensure all submodules are updated
+          git submodule update --init --recursive
           # Configure git user for tag creation
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
@@ -75,33 +74,42 @@ jobs:
 
           echo "Building for product: kqb, keymap: ${{ env.KEYMAP }}"
 
-          # Check if keyboard_quantizer directory exists, if not create the full structure
+          # Check if the keyboard_quantizer/kqb exists in the cloned repository
           if [ ! -d "keyboards/sekigon/keyboard_quantizer/kqb" ]; then
-            echo "Creating keyboard_quantizer/kqb directory structure"
+            echo "KQB keyboard not found in repository, creating from workspace..."
             mkdir -p keyboards/sekigon/keyboard_quantizer/kqb
-          fi
-
-          # Create keymap directory if it doesn't exist
-          mkdir -p keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}
-
-          # Copy all kqb files from workspace to ensure complete setup
-          echo "Copying kqb files from workspace..."
-          if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
-            # Copy all files except keymaps directory first
-            find "$GITHUB_WORKSPACE/kqb" -maxdepth 1 -type f -exec cp {} keyboards/sekigon/keyboard_quantizer/kqb/ \;
             
-            # Copy ld directory if it exists
-            if [ -d "$GITHUB_WORKSPACE/kqb/ld" ]; then
-              cp -r "$GITHUB_WORKSPACE/kqb/ld" keyboards/sekigon/keyboard_quantizer/kqb/
+            # Copy the entire kqb directory from workspace
+            if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
+              cp -r "$GITHUB_WORKSPACE/kqb/"* keyboards/sekigon/keyboard_quantizer/kqb/
+              echo "Copied entire kqb directory from workspace"
+            else
+              echo "Error: kqb directory not found in workspace"
+              exit 1
+            fi
+          else
+            echo "KQB keyboard found in repository, updating with workspace files..."
+            # Copy all kqb files from workspace to ensure complete setup
+            if [ -d "$GITHUB_WORKSPACE/kqb" ]; then
+              # Copy all files except keymaps directory first
+              find "$GITHUB_WORKSPACE/kqb" -maxdepth 1 -type f -exec cp {} keyboards/sekigon/keyboard_quantizer/kqb/ \;
+              
+              # Copy ld directory if it exists
+              if [ -d "$GITHUB_WORKSPACE/kqb/ld" ]; then
+                cp -r "$GITHUB_WORKSPACE/kqb/ld" keyboards/sekigon/keyboard_quantizer/kqb/
+              fi
             fi
           fi
+
+          # Ensure keymap directory exists
+          mkdir -p keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}
 
           # Copy keymap files from workspace if they exist
           if [ -d "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}" ]; then
             cp -r "$GITHUB_WORKSPACE/kqb/keymaps/${{ env.KEYMAP }}/"* keyboards/sekigon/keyboard_quantizer/kqb/keymaps/${{ env.KEYMAP }}/
             echo "Copied custom keymap files for ${{ env.KEYMAP }}"
           else
-            echo "Warning: Keymap ${{ env.KEYMAP }} not found in workspace, using default from repository"
+            echo "Warning: Keymap ${{ env.KEYMAP }} not found in workspace"
           fi
 
           # List the contents to verify
