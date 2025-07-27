@@ -1,0 +1,95 @@
+# Keyboard Quantizer Mini firmware build workflow
+name: Build Mini Firmware
+
+# Workflow trigger settings - manual execution only
+on:
+  # Manual execution trigger with parameters
+  workflow_dispatch:
+    inputs:
+      keymap:
+        description: 'Select keymap type'
+        required: true
+        default: 'naginata_v16'
+        type: choice
+        options:
+          - 'default'
+          - 'naginata_v16'
+          - 'no_msc'
+
+jobs:
+  build:
+    # Run on Ubuntu latest
+    runs-on: ubuntu-latest
+    env:
+      # Default values for push/PR triggers
+      KEYMAP: ${{ github.event.inputs.keymap || 'naginata_v16' }}
+    steps:
+      # Checkout repository with submodules
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Install build dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git python3-pip gcc-arm-none-eabi binutils-avr avr-libc
+          python3 -m pip install qmk
+
+      # Clone and setup Vial-QMK
+      - name: Clone Vial QMK
+        run: |
+          git clone --recursive --depth 1 -b bmp-vial-1.3.5 https://github.com/sekigon-gonnoc/vial-qmk.git
+          cd vial-qmk
+          pip3 install -r requirements.txt
+          qmk setup -H $PWD -y
+
+      # Prepare keymap files for mini product
+      - name: Prepare keymap files
+        run: |
+          cd vial-qmk
+
+          echo "Building for product: mini, keymap: ${{ env.KEYMAP }}"
+
+          # Create keymap directory
+          mkdir -p keyboards/sekigon/keyboard_quantizer/mini/keymaps/${{ env.KEYMAP }}
+
+          # For mini product
+          if [ "${{ env.KEYMAP }}" = "naginata_v16" ]; then
+            # Special case for naginata_v16: create based on vial
+            cp -r keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+            cp -r $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/naginata_v16/
+            cp $GITHUB_WORKSPACE/mini/keymaps/naginata_v16/keymap.h keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/
+          else
+            # For other keymaps
+            if [ -d "$GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}" ]; then
+              cp -r $GITHUB_WORKSPACE/mini/keymaps/${{ env.KEYMAP }}/* keyboards/sekigon/keyboard_quantizer/mini/keymaps/${{ env.KEYMAP }}/
+            else
+              echo "Warning: Keymap ${{ env.KEYMAP }} not found for mini, using existing keymap"
+            fi
+          fi
+          # Copy mini common files
+          cp $GITHUB_WORKSPACE/mini/c1_usbh.c keyboards/sekigon/keyboard_quantizer/mini/
+
+          # Validate keymap
+          if [ ! -f "keyboards/sekigon/keyboard_quantizer/mini/keymaps/${{ env.KEYMAP }}/keymap.c" ]; then
+            echo "Error: Invalid keymap: mini/${{ env.KEYMAP }}"
+            exit 1
+          fi
+
+      # Build firmware
+      - name: Build firmware
+        working-directory: vial-qmk
+        run: |
+          # Build mini firmware
+          make sekigon/keyboard_quantizer/mini:${{ env.KEYMAP }}:uf2
+          ls -la .build/  # Show built files
+
+      # Archive built firmware as artifact
+      - name: Archive firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyboard-firmware-mini-${{ env.KEYMAP }}
+          path: vial-qmk/.build/sekigon_keyboard_quantizer_mini_${{ env.KEYMAP }}.uf2
+          if-no-files-found: error  # Error if files not found
+          retention-days: 7
