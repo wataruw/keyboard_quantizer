@@ -67,6 +67,9 @@ jobs:
           
           # Copy kqb files from workspace
           cp -r $GITHUB_WORKSPACE/kqb/* keyboards/sekigon/keyboard_quantizer/kqb/
+          
+          # Add required ARCH setting to rules.mk
+          echo "ARCH = ARM" >> keyboards/sekigon/keyboard_quantizer/kqb/rules.mk
 
       # Build KQB firmware
       - name: Build KQB firmware
