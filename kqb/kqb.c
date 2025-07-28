@@ -154,6 +154,9 @@ void keyboard_post_init_kb(void) {
     keyboard_config.gesture_threshold = keyboard_config.gesture_threshold == 0 ? 50 : keyboard_config.gesture_threshold;
     set_mouse_gesture_threshold(keyboard_config.gesture_threshold);
     set_auto_sleep_timeout(keyboard_config.sleep * 10 * 60 * 1000);
+
+    // 薙刀式
+    keyboard_post_init_user();
 }
 
 void eeconfig_init_kb(void) {
