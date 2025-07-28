@@ -16,6 +16,7 @@
 
 #pragma once
 
+#define DISABLE_MSC 1
 #define VIAL_KEYBOARD_UID {0xE6, 0x96, 0xBE, 0x30, 0x96, 0x0F, 0x22, 0x95}
 #define VIAL_UNLOCK_COMBO_ROWS { 0, 1 }
 #define VIAL_UNLOCK_COMBO_COLS { 0, 1 }
